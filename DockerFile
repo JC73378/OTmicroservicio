@@ -1,27 +1,23 @@
-# Imagen base con Maven y JDK
-FROM maven:3.8.6-openjdk-17 AS builder
-
-# Directorio de trabajo
+# Build stage
+FROM maven:3.9.6-eclipse-temurin-21 AS builder
 WORKDIR /app
 
-# Copiar archivos de configuración de Maven primero (para cache)
+# Dependencias primero para aprovechar cache
 COPY pom.xml .
+RUN mvn -B -DskipTests dependency:go-offline
+
+# Código fuente
 COPY src ./src
 
-# Empaquetar la aplicación
-RUN mvn clean package -DskipTests
+# Empaquetar (sin tests para acelerar la imagen)
+RUN mvn -B -DskipTests clean package
 
-# Imagen final más liviana
-FROM openjdk:17-jre-slim
-
-# Directorio de trabajo
+# Runtime stage
+FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-# Copiar el JAR desde la fase de construcción
+# Copiamos el jar construido
 COPY --from=builder /app/target/*.jar app.jar
 
-# Exponer puerto (normalmente 8080 para Spring Boot)
 EXPOSE 8080
-
-# Comando para ejecutar
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java","-jar","/app/app.jar"]
